@@ -6,7 +6,15 @@ import (
 
 func LoadRouter(handler *Handler) *gin.Engine {
 	r := gin.New()
-	r.Use(gin.Logger(), gin.Recovery())
+
+	// Recovery middleware recovers from any panics and writes a 500 if there was one.
+	r.Use(gin.Recovery())
+
+	// Logger middleware will write the logs to gin.DefaultWriter when in development mode
+	// By default gin.DefaultWriter = os.Stdout
+	if gin.Mode() != gin.ReleaseMode {
+		r.Use(gin.Logger())
+	}
 
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})

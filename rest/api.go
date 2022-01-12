@@ -35,6 +35,7 @@ func (h *Handler) Get(c *gin.Context) {
 	}
 	if user != nil {
 		c.JSON(http.StatusOK, user)
+		return
 	}
 	c.JSON(http.StatusNotFound, gin.H{"message": "user not found"})
 }
