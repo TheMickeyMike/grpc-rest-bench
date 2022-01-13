@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/TheMickeyMike/grpc-rest-bench/warehouse"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,10 +27,7 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) SmallJSONResponse(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"name": "Jack",
-		"age":  4,
-	})
+	c.JSON(http.StatusOK, warehouse.SmallResponse{Name: "Jack", Age: 4})
 }
 
 func (h *Handler) Get(c *gin.Context) {

@@ -7,6 +7,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type SmallResponse struct {
+	Name string
+	Age  int
+}
+
 type UserAccount struct {
 	ID         string   `json:"_id"`
 	IsActive   bool     `json:"isActive"`
