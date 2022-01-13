@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"github.com/TheMickeyMike/grpc-rest-bench/warehouse"
 )
 
 var shutdownSignals = []os.Signal{os.Interrupt, syscall.SIGTERM}
@@ -33,7 +35,7 @@ func run(ctx context.Context) error {
 	defer cancel()
 
 	// api handlers with injected services
-	apiHandler := NewHandler(NewUserService(NewDb()))
+	apiHandler := NewHandler(NewUserService(warehouse.NewDb(logger)))
 
 	// create router
 	router := LoadRouter(apiHandler)

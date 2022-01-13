@@ -3,6 +3,7 @@ module github.com/TheMickeyMike/grpc-rest-bench/rest
 go 1.17
 
 require (
+	github.com/TheMickeyMike/grpc-rest-bench/warehouse v0.0.0-00010101000000-000000000000
 	github.com/gin-gonic/gin v1.7.7
 	go.uber.org/zap v1.20.0
 )
@@ -25,3 +26,5 @@ require (
 	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
 )
+
+replace github.com/TheMickeyMike/grpc-rest-bench/warehouse => ../warehouse
