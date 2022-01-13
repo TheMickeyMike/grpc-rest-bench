@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -21,6 +24,7 @@ func NewAPI(host string, readTimeout, writeTimeout time.Duration, router http.Ha
 			ReadTimeout:    readTimeout,
 			WriteTimeout:   writeTimeout,
 			MaxHeaderBytes: 1 << 20,
+			TLSConfig:      tlsConfig(),
 		},
 	}
 }
@@ -28,7 +32,8 @@ func NewAPI(host string, readTimeout, writeTimeout time.Duration, router http.Ha
 func (api *API) Start(serverErrors chan<- error) {
 	go func() {
 		logger.Info("api : API Listening", zap.String("server", api.server.Addr))
-		if err := api.server.ListenAndServe(); err != nil && errors.Is(err, http.ErrServerClosed) {
+		err := api.server.ListenAndServeTLS("", "")
+		if err != nil && errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err
 		}
 	}()
@@ -46,4 +51,26 @@ func (api *API) Stop(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func tlsConfig() *tls.Config {
+	crt, err := ioutil.ReadFile("./ssl/server.crt")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	key, err := ioutil.ReadFile("./ssl/server.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	cert, err := tls.X509KeyPair(crt, key)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "localhost",
+	}
 }

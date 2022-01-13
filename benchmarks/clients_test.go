@@ -2,8 +2,11 @@ package benchmarks
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"sync"
@@ -11,9 +14,16 @@ import (
 	"testing"
 
 	"github.com/TheMickeyMike/grpc-rest-bench/warehouse"
+	"golang.org/x/net/http2"
 )
 
-const wcount = 3
+const wcount = 6
+
+var client http.Client
+
+func init() {
+	client = http.Client{}
+}
 
 type Request struct {
 	Path string
@@ -25,12 +35,35 @@ type Result struct {
 	Error      error
 }
 
+func createTLSConfigWithCustomCert() *tls.Config {
+	// Create a pool with the server certificate since it is not signed
+	// by a known CA
+	caCert, err := ioutil.ReadFile("../rest/ssl/server.crt")
+	if err != nil {
+		log.Fatalf("Reading server certificate: %s", err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	cert, err := tls.LoadX509KeyPair("../rest/ssl/server.crt", "../rest/ssl/server.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create TLS configuration with the certificate of the server
+	return &tls.Config{
+		RootCAs:      caCertPool,
+		Certificates: []tls.Certificate{cert},
+		ServerName:   "localhost",
+	}
+}
+
 func MakeRequest(ctx context.Context, url string, output interface{}) (int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, err
 	}
-	res, err := http.DefaultClient.Do(req)
+	res, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -43,18 +76,23 @@ func MakeRequest(ctx context.Context, url string, output interface{}) (int, erro
 	return res.StatusCode, nil
 }
 
-func BenchmarkRest_10MB(b *testing.B) {
+func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 	var wg sync.WaitGroup
+
+	client.Transport = &http2.Transport{
+		AllowHTTP:       true,
+		TLSClientConfig: createTLSConfigWithCustomCert(),
+	}
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
 	requestQueue := make(chan Request, wcount)
-	results := make(chan Result, wcount)
+	resultsQueue := make(chan Result, wcount)
 
 	wg.Add(wcount)
 	for i := 0; i < wcount; i++ {
-		go worker(ctx, &wg, requestQueue, results, i)
+		go worker(ctx, &wg, requestQueue, resultsQueue, i)
 	}
 
 	b.ResetTimer() // don't count worker initialization time
@@ -63,13 +101,37 @@ func BenchmarkRest_10MB(b *testing.B) {
 	}
 	close(requestQueue)
 	wg.Wait()
-	// for s := range results {
-	// 	log.Printf("RESULT: %+v\n", s)
-	// }
-	close(results)
+	close(resultsQueue)
 }
 
-func worker(ctx context.Context, wg *sync.WaitGroup, requestQueue <-chan Request, results chan<- Result, id int) {
+func BenchmarkRestHTTP11Get(b *testing.B) {
+	var wg sync.WaitGroup
+
+	client.Transport = &http.Transport{
+		TLSClientConfig: createTLSConfigWithCustomCert(),
+	}
+
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	requestQueue := make(chan Request, wcount)
+	resultsQueue := make(chan Result, wcount)
+
+	wg.Add(wcount)
+	for i := 0; i < wcount; i++ {
+		go worker(ctx, &wg, requestQueue, resultsQueue, i)
+	}
+
+	b.ResetTimer() // don't count worker initialization time
+	for n := 0; n < b.N; n++ {
+		requestQueue <- Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c"}
+	}
+	close(requestQueue)
+	wg.Wait()
+	close(resultsQueue)
+}
+
+func worker(ctx context.Context, wg *sync.WaitGroup, requestQueue <-chan Request, resultsQueue chan<- Result, id int) {
 	// log.Printf("[worker %d]start\n", id)
 	defer wg.Done()
 	for {
@@ -89,7 +151,7 @@ func worker(ctx context.Context, wg *sync.WaitGroup, requestQueue <-chan Request
 			// results <- Result{user, respCode, err}
 		case <-ctx.Done():
 			fmt.Printf("cancelled worker. Error detail: %v\n", ctx.Err())
-			results <- Result{
+			resultsQueue <- Result{
 				Error: ctx.Err(),
 			}
 			return
