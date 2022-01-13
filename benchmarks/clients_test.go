@@ -17,7 +17,7 @@ import (
 	"golang.org/x/net/http2"
 )
 
-const wcount = 6
+const wcount = 300
 
 var client http.Client
 
@@ -97,7 +97,8 @@ func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
-		requestQueue <- Request{Path: "http://localhost:8080/api/v1/users/61df07d341ed08ad981c143c"}
+		// requestQueue <- Request{Path: "http://localhost:8080/api/v1/users/61df07d341ed08ad981c143c"}
+		requestQueue <- Request{Path: "http://localhost:8080/api/v1/small"}
 	}
 	close(requestQueue)
 	wg.Wait()
@@ -124,7 +125,8 @@ func BenchmarkRestHTTP11Get(b *testing.B) {
 
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
-		requestQueue <- Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c"}
+		// requestQueue <- Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c"}
+		requestQueue <- Request{Path: "https://localhost:8080/api/v1/small"}
 	}
 	close(requestQueue)
 	wg.Wait()

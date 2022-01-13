@@ -31,6 +31,7 @@ func LoadRouter(handler *Handler) *gin.Engine {
 
 	apiv1 := r.Group("/api/v1")
 	{
+		apiv1.GET("/small", handler.SmallJSONResponse)
 		apiv1.GET("/users", handler.List)
 		apiv1.GET("/users/:id", handler.Get)
 		apiv1.DELETE("/users/:id", handler.Delete)

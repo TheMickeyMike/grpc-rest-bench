@@ -25,6 +25,13 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
+func (h *Handler) SmallJSONResponse(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"name": "Jack",
+		"age":  4,
+	})
+}
+
 func (h *Handler) Get(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
