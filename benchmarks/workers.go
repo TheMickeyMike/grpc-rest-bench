@@ -101,7 +101,8 @@ func Worker(ctx context.Context, wg *sync.WaitGroup, requestQueue <-chan *Reques
 			var retry int
 			if err != nil {
 				for err != nil && retry < 3 {
-					time.Sleep(time.Millisecond * 60)
+					// fmt.Println("retry")
+					time.Sleep(time.Second * 1)
 					code, proto, err = MakeRequest(ctx, req.Path, req.ResponseObject)
 					retry++
 				}

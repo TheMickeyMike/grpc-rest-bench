@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/http2"
 )
 
-const wcount = 32
+const wcount = 1
 
 func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 	var (
@@ -41,12 +41,12 @@ func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
 		requestQueue <- &Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", ResponseObject: &warehouse.UserAccount{}}
-		// requestQueue <- Request{Path: "https://127.0.0.1:8080/api/v1/small", ResponseObject: &warehouse.SmallResponse{}}
+		// requestQueue <- &Request{Path: "https://localhost:8080/api/v1/small", ResponseObject: &warehouse.SmallResponse{}}
 	}
-	b.StopTimer()       //stop benchmark timer
 	close(requestQueue) //stop workers
 	wWg.Wait()          //wait for workers gracefull shutdown
 	close(resultsQueue) //close result channel and collector
+	b.StopTimer()       //stop benchmark timer, all request has been made
 	cWg.Wait()          // wait for collecting result
 	b.Logf("%+v SUM: %10d", collector.GetResults(), collector.GetSum())
 }
@@ -79,12 +79,12 @@ func BenchmarkRestHTTP11Get(b *testing.B) {
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
 		requestQueue <- &Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", ResponseObject: &warehouse.UserAccount{}}
-		// requestQueue <- Request{Path: "https://127.0.0.1:8080/api/v1/small", ResponseObject: &warehouse.SmallResponse{}}
+		// requestQueue <- &Request{Path: "https://localhost:8080/api/v1/small", ResponseObject: &warehouse.SmallResponse{}}
 	}
-	b.StopTimer()       //stop benchmark timer
 	close(requestQueue) //stop workers
 	wWg.Wait()          //wait for workers gracefull shutdown
 	close(resultsQueue) //close result channel and collector
+	b.StopTimer()       //stop benchmark timer, all request has been made
 	cWg.Wait()          // wait for collecting result
 	b.Logf("%+v SUM: %10d", collector.GetResults(), collector.GetSum())
 }
