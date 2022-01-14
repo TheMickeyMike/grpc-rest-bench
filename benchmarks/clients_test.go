@@ -17,7 +17,7 @@ import (
 	"golang.org/x/net/http2"
 )
 
-const wcount = 50
+const wcount = 100
 
 var client http.Client
 
@@ -68,11 +68,15 @@ func MakeRequest(ctx context.Context, url string, output interface{}) (int, erro
 		return 0, err
 	}
 	defer res.Body.Close()
+
 	// use discard when not reading body
 	// io.Copy(ioutil.Discard, res.Body)
-	// decode input
+
+	// use decode when
 	decoder := json.NewDecoder(res.Body)
-	decoder.Decode(output)
+	if err = decoder.Decode(output); err != nil {
+		return 0, err
+	}
 	return res.StatusCode, nil
 }
 
@@ -90,19 +94,21 @@ func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 	requestQueue := make(chan Request, wcount)
 	resultsQueue := make(chan Result, wcount)
 
-	wg.Add(wcount)
+	defer func() {
+		close(requestQueue)
+		wg.Wait() // wait for gracefull shutdown
+		close(resultsQueue)
+	}()
+
 	for i := 0; i < wcount; i++ {
 		go worker(ctx, &wg, requestQueue, resultsQueue, i)
 	}
-
+	wg.Add(wcount)
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
 		// requestQueue <- Request{Path: "http://localhost:8080/api/v1/users/61df07d341ed08ad981c143c"}
 		requestQueue <- Request{Path: "http://127.0.0.1:8080/api/v1/small"}
 	}
-	close(requestQueue)
-	wg.Wait()
-	close(resultsQueue)
 }
 
 func BenchmarkRestHTTP11Get(b *testing.B) {
@@ -136,6 +142,7 @@ func BenchmarkRestHTTP11Get(b *testing.B) {
 func worker(ctx context.Context, wg *sync.WaitGroup, requestQueue <-chan Request, resultsQueue chan<- Result, id int) {
 	// log.Printf("[worker %d]start\n", id)
 	defer wg.Done()
+	var lolek warehouse.SmallResponse
 	for {
 		select {
 		case req, ok := <-requestQueue:
@@ -143,7 +150,7 @@ func worker(ctx context.Context, wg *sync.WaitGroup, requestQueue <-chan Request
 				return
 			}
 			// var users []warehouse.UserAccount
-			var lolek warehouse.SmallResponse
+
 			_, err := MakeRequest(ctx, req.Path, &lolek)
 			if err != nil {
 				log.Printf("[worker %d] die (reason: %s)\n", id, err)
