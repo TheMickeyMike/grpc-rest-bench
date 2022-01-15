@@ -3,15 +3,20 @@ package main
 import (
 	"net/http"
 
-	"github.com/TheMickeyMike/grpc-rest-bench/warehouse"
+	"github.com/TheMickeyMike/grpc-rest-bench/user"
 	"github.com/gin-gonic/gin"
 )
 
-type Handler struct {
-	service Service
+type SmallResponse struct {
+	Name string
+	Age  int
 }
 
-func NewHandler(s Service) *Handler {
+type Handler struct {
+	service user.UserService
+}
+
+func NewHandler(s user.UserService) *Handler {
 	return &Handler{s}
 }
 
@@ -27,7 +32,7 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) SmallJSONResponse(c *gin.Context) {
-	c.JSON(http.StatusOK, warehouse.SmallResponse{Name: "Jack", Age: 4})
+	c.JSON(http.StatusOK, SmallResponse{Name: "Jack", Age: 4})
 }
 
 func (h *Handler) Get(c *gin.Context) {

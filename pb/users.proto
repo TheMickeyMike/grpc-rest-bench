@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+option go_package = "github.com/TheMickeyMike/grpc-rest-bench/pb";
+
+package pb;
+
+message UserAccount {
+    string id = 1;
+    bool isActive = 2;
+    string balance = 3;
+    string picture = 4;
+    int32 age = 5;
+    string eyeColor = 6;
+    string name = 7;
+    string gender = 8;
+    string company = 9;
+    string email = 10;
+    string address = 11;
+    string about = 12;
+    string registered = 13;
+    double latitude = 14;
+    double longitude = 15;
+    repeated string tags = 16;
+   
+}
+
+message UserRequest {
+    string id = 1;
+}
+
+service Users {
+    rpc GetUser(UserRequest) returns (UserAccount) {}
+}

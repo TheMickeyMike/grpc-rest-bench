@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/TheMickeyMike/grpc-rest-bench/data"
 	"go.uber.org/zap"
 )
 
@@ -54,12 +55,12 @@ func (api *API) Stop(ctx context.Context) error {
 }
 
 func tlsConfig() *tls.Config {
-	crt, err := ioutil.ReadFile("./ssl/server.crt")
+	crt, err := ioutil.ReadFile(data.Path("x509/server.crt"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	key, err := ioutil.ReadFile("./ssl/server.key")
+	key, err := ioutil.ReadFile(data.Path("x509/server.key"))
 	if err != nil {
 		log.Fatal(err)
 	}

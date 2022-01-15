@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/http2"
 )
 
-const wcount = 1
+const wcount = 128
 
 func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 	var (
