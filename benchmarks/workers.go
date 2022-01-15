@@ -13,7 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TheMickeyMike/grpc-rest-bench/warehouse"
+	"github.com/TheMickeyMike/grpc-rest-bench/data"
+	"github.com/TheMickeyMike/grpc-rest-bench/pb"
 )
 
 var client http.Client
@@ -22,8 +23,13 @@ func init() {
 	client = http.Client{}
 }
 
+type SmallResponse struct {
+	Name string
+	Age  int
+}
+
 type Result struct {
-	User       warehouse.UserAccount
+	User       *pb.UserAccount
 	StatusCode string
 	Proto      string
 	Error      error
@@ -37,20 +43,20 @@ type Result struct {
 
 type Request struct {
 	Path           string
-	ResponseObject *warehouse.UserAccount
+	ResponseObject *pb.UserAccount
 }
 
 func createTLSConfigWithCustomCert() *tls.Config {
 	// Create a pool with the server certificate since it is not signed
 	// by a known CA
-	caCert, err := ioutil.ReadFile("../rest/ssl/server.crt")
+	caCert, err := ioutil.ReadFile(data.Path("x509/server.crt"))
 	if err != nil {
 		log.Fatalf("Reading server certificate: %s", err)
 	}
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
 
-	cert, err := tls.LoadX509KeyPair("../rest/ssl/server.crt", "../rest/ssl/server.key")
+	cert, err := tls.LoadX509KeyPair(data.Path("x509/server.crt"), data.Path("x509/server.key"))
 	if err != nil {
 		log.Fatal(err)
 	}

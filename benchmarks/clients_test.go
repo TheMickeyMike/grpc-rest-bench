@@ -7,7 +7,7 @@ import (
 
 	"testing"
 
-	"github.com/TheMickeyMike/grpc-rest-bench/warehouse"
+	"github.com/TheMickeyMike/grpc-rest-bench/pb"
 	"golang.org/x/net/http2"
 )
 
@@ -40,8 +40,8 @@ func BenchmarkRestHTTP2GetWithWokers(b *testing.B) {
 
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
-		requestQueue <- &Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", ResponseObject: &warehouse.UserAccount{}}
-		// requestQueue <- &Request{Path: "https://localhost:8080/api/v1/small", ResponseObject: &warehouse.SmallResponse{}}
+		requestQueue <- &Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", ResponseObject: &pb.UserAccount{}}
+		// requestQueue <- &Request{Path: "https://localhost:8080/api/v1/small", ResponseObject: &SmallResponse{}}
 	}
 	close(requestQueue) //stop workers
 	wWg.Wait()          //wait for workers gracefull shutdown
@@ -78,8 +78,8 @@ func BenchmarkRestHTTP11Get(b *testing.B) {
 
 	b.ResetTimer() // don't count worker initialization time
 	for n := 0; n < b.N; n++ {
-		requestQueue <- &Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", ResponseObject: &warehouse.UserAccount{}}
-		// requestQueue <- &Request{Path: "https://localhost:8080/api/v1/small", ResponseObject: &warehouse.SmallResponse{}}
+		requestQueue <- &Request{Path: "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", ResponseObject: &pb.UserAccount{}}
+		// requestQueue <- &Request{Path: "https://localhost:8080/api/v1/small", ResponseObject: &SmallResponse{}}
 	}
 	close(requestQueue) //stop workers
 	wWg.Wait()          //wait for workers gracefull shutdown
