@@ -17,7 +17,7 @@ func New(wcount int) *WorkerPool {
 	return &WorkerPool{
 		workersCount: wcount,
 		jobs:         make(chan Job, wcount),
-		results:      make(chan Result, wcount),
+		results:      make(chan Result, wcount*10),
 		Done:         make(chan struct{}),
 	}
 }

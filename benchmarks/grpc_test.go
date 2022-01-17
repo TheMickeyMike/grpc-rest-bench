@@ -2,13 +2,17 @@ package benchmarks
 
 import (
 	"context"
+	"strings"
 	"testing"
 
+	"github.com/TheMickeyMike/grpc-rest-bench/pb"
 	"github.com/TheMickeyMike/grpc-rest-bench/wpool"
 )
 
 func BenchmarkHTTP2GetWithWokers(b *testing.B) {
-	wp := wpool.New(6)
+	client := NewHTTPClient(HTTP2)
+
+	wp := wpool.New(1)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -23,7 +27,13 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 
 	job := &wpool.Job{
 		ExecFn: func(ctx context.Context, args interface{}) ([]string, error) {
-			return []string{"200_OK", "HTTP_1_1"}, nil
+			var respBody pb.UserAccount
+			reqStats, err := client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &respBody)
+			if err != nil {
+				return nil, err
+			}
+			// return []string{"200_OK", "HTTP_1_1"}, nil
+			return []string{transformToStatKey(reqStats)}, nil
 		},
 	}
 
@@ -37,4 +47,9 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 	b.StopTimer()
 	report := collector.GenerateReport()
 	b.Log(report)
+}
+
+func transformToStatKey(stats []string) string {
+	key := strings.Join(stats, "_")
+	return strings.ReplaceAll(key, " ", "_")
 }

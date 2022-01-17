@@ -2,18 +2,13 @@ package benchmarks
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/TheMickeyMike/grpc-rest-bench/data"
 	"github.com/TheMickeyMike/grpc-rest-bench/pb"
 )
 
@@ -44,28 +39,6 @@ type Result struct {
 type Request struct {
 	Path           string
 	ResponseObject *pb.UserAccount
-}
-
-func createTLSConfigWithCustomCert() *tls.Config {
-	// Create a pool with the server certificate since it is not signed
-	// by a known CA
-	caCert, err := ioutil.ReadFile(data.Path("x509/server.crt"))
-	if err != nil {
-		log.Fatalf("Reading server certificate: %s", err)
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-
-	cert, err := tls.LoadX509KeyPair(data.Path("x509/server.crt"), data.Path("x509/server.key"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Create TLS configuration with the certificate of the server
-	return &tls.Config{
-		RootCAs:      caCertPool,
-		Certificates: []tls.Certificate{cert},
-	}
 }
 
 func MakeRequest(ctx context.Context, url string, output interface{}) (string, string, error) {
