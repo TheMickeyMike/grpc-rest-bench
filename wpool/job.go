@@ -2,36 +2,26 @@ package wpool
 
 import "context"
 
-type ExecutionFn func(ctx context.Context, args interface{}) ([]string, error)
-
-type JobDetails struct {
-	ID       int
-	Metadata map[string]string
-}
+type ExecutionFn func(ctx context.Context) (string, error)
 
 type Result struct {
-	Value   []string
-	Err     error
-	Details JobDetails
+	Value string
+	Err   error
 }
 
 type Job struct {
-	Details JobDetails
-	ExecFn  ExecutionFn
-	Args    interface{}
+	ExecFn ExecutionFn
 }
 
 func (j Job) execute(ctx context.Context) Result {
-	value, err := j.ExecFn(ctx, j.Args)
+	value, err := j.ExecFn(ctx)
 	if err != nil {
 		return Result{
-			Err:     err,
-			Details: j.Details,
+			Err: err,
 		}
 	}
 
 	return Result{
-		Value:   value,
-		Details: j.Details,
+		Value: value,
 	}
 }

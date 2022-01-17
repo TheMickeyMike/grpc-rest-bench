@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/TheMickeyMike/grpc-rest-bench/data"
 	"golang.org/x/net/http2"
@@ -19,6 +20,17 @@ var (
 	HTTP  TransportProtocolVer = "HTTP1"
 	HTTP2 TransportProtocolVer = "HTTP2"
 )
+
+type ResponseDetails struct {
+	Status string
+	Proto  string
+}
+
+func (r *ResponseDetails) StatKey() string {
+	stats := []string{r.Status, r.Proto}
+	key := strings.Join(stats, "_")
+	return strings.ReplaceAll(key, " ", "_")
+}
 
 type HTTPClient struct {
 	client *http.Client
@@ -40,7 +52,7 @@ func NewHTTPClient(protocol TransportProtocolVer) *HTTPClient {
 	return &HTTPClient{c}
 }
 
-func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interface{}) ([]string, error) {
+func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interface{}) (*ResponseDetails, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -52,20 +64,19 @@ func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interfa
 	}
 	defer res.Body.Close()
 
-	// use discard when not reading body
-	// io.Copy(ioutil.Discard, res.Body)
+	respDetails := ResponseDetails{
+		Status: res.Status,
+		Proto:  res.Proto,
+	}
 
-	// use decode when
-	decoder := json.NewDecoder(res.Body)
+	decoder := json.NewDecoder(res.Body) // drop resp: io.Copy(ioutil.Discard, res.Body)
 	if err = decoder.Decode(output); err != nil {
 		return nil, err
 	}
-	return []string{res.Status, res.Proto}, nil
+	return &respDetails, nil
 }
 
 func createTLSConfigWithCustomCert() *tls.Config {
-	// Create a pool with the server certificate since it is not signed
-	// by a known CA
 	caCert, err := ioutil.ReadFile(data.Path("x509/server.crt"))
 	if err != nil {
 		log.Fatalf("Reading server certificate: %s", err)
@@ -77,8 +88,6 @@ func createTLSConfigWithCustomCert() *tls.Config {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Create TLS configuration with the certificate of the server
 	return &tls.Config{
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{cert},

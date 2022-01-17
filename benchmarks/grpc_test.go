@@ -2,7 +2,6 @@ package benchmarks
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/TheMickeyMike/grpc-rest-bench/pb"
@@ -10,9 +9,9 @@ import (
 )
 
 func BenchmarkHTTP2GetWithWokers(b *testing.B) {
-	client := NewHTTPClient(HTTP2)
+	client := NewHTTPClient(HTTP)
 
-	wp := wpool.New(1)
+	wp := wpool.New(30)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -25,31 +24,33 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 
 	go collector.Run(ctx) //start result collector
 
-	job := &wpool.Job{
-		ExecFn: func(ctx context.Context, args interface{}) ([]string, error) {
-			var respBody pb.UserAccount
-			reqStats, err := client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &respBody)
-			if err != nil {
-				return nil, err
+	job := wpool.Job{
+		ExecFn: func(ctx context.Context) (string, error) {
+			var (
+				err      error
+				response *ResponseDetails
+				target   pb.UserAccount
+				retries  int = 3
+			)
+			for retries > 0 {
+				response, err = client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &target)
+				if err != nil {
+					retries -= 1
+				} else {
+					break
+				}
 			}
-			// return []string{"200_OK", "HTTP_1_1"}, nil
-			return []string{transformToStatKey(reqStats)}, nil
+			return response.StatKey(), nil
 		},
 	}
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		job.Details.ID = n
-		requestQueue <- *job
+		requestQueue <- job
 	}
 	close(requestQueue)
 	<-wp.Done
 	b.StopTimer()
 	report := collector.GenerateReport()
 	b.Log(report)
-}
-
-func transformToStatKey(stats []string) string {
-	key := strings.Join(stats, "_")
-	return strings.ReplaceAll(key, " ", "_")
 }

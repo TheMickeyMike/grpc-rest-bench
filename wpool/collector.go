@@ -30,9 +30,7 @@ func (c *Collector) Run(ctx context.Context) {
 			if res.Err != nil {
 				c.results["error"] += 1
 			} else {
-				for _, v := range res.Value {
-					c.results[v] += 1
-				}
+				c.results[res.Value] += 1
 			}
 		case <-ctx.Done():
 			fmt.Printf("cancelled collector. Error detail: %v\n", ctx.Err())
