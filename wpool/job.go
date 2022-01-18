@@ -4,11 +4,12 @@ import (
 	"context"
 )
 
-type ExecutionFn func(ctx context.Context) (string, error)
+type ExecutionFn func(ctx context.Context) (string, int64, error)
 
 type Result struct {
-	Value string
-	Err   error
+	Value   string
+	Retries int64
+	Err     error
 }
 
 type Job struct {
@@ -16,7 +17,7 @@ type Job struct {
 }
 
 func (j *Job) execute(ctx context.Context) Result {
-	value, err := j.ExecFn(ctx)
+	value, retries, err := j.ExecFn(ctx)
 	if err != nil {
 		return Result{
 			Err: err,
@@ -24,6 +25,7 @@ func (j *Job) execute(ctx context.Context) Result {
 	}
 
 	return Result{
-		Value: value,
+		Value:   value,
+		Retries: retries,
 	}
 }
