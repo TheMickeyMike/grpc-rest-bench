@@ -2,7 +2,6 @@ package benchmarks
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"testing"
 
@@ -14,9 +13,9 @@ import (
 )
 
 func BenchmarkHTTP2GetWithWokers(b *testing.B) {
-	client := NewHTTPClient(HTTP2)
+	client := NewHTTPClient(HTTP)
 
-	wp := wpool.New(1)
+	wp := wpool.New(1000)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -28,24 +27,22 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 	collector := wpool.NewCollector(wp.Results())
 
 	go collector.Run(ctx) //start result collector
-
+	var retry int
 	job := wpool.Job{
 		ExecFn: func(ctx context.Context) (string, error) {
 			var (
 				err      error
 				response ResponseDetails
 				target   pb.UserAccount
-				retries  int = 3
 			)
-			for retries > 0 {
+			for {
 				response, err = client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &target)
-				if err != nil {
-					retries -= 1
-				} else {
+				if err == nil {
 					break
 				}
+				retry++
 			}
-			return response.StatKey(), nil
+			return response.StatKey(), err
 		},
 	}
 
@@ -58,7 +55,55 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 	b.StopTimer()
 	report := collector.GenerateReport()
 	b.Log(report)
+	b.Logf("retry: %d\n", retry)
 }
+
+// func BenchmarkHTTP2GetWithWokers(b *testing.B) {
+// 	client := NewHTTPClient(HTTP)
+
+// 	wp := wpool.New(30)
+
+// 	ctx, cancel := context.WithCancel(context.TODO())
+// 	defer cancel()
+
+// 	go wp.Run(ctx) //start workers
+
+// 	requestQueue := wp.JobQueue()
+
+// 	collector := wpool.NewCollector(wp.Results())
+
+// 	go collector.Run(ctx) //start result collector
+
+// 	job := wpool.Job{
+// 		ExecFn: func(ctx context.Context) (string, error) {
+// 			var (
+// 				err      error
+// 				response ResponseDetails
+// 				target   pb.UserAccount
+// 				retries  int = 3
+// 			)
+// 			for retries > 0 {
+// 				response, err = client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &target)
+// 				if err != nil {
+// 					retries -= 1
+// 				} else {
+// 					break
+// 				}
+// 			}
+// 			return response.StatKey(), err
+// 		},
+// 	}
+
+// 	b.ResetTimer()
+// 	for n := 0; n < b.N; n++ {
+// 		requestQueue <- job
+// 	}
+// 	close(requestQueue)
+// 	<-wp.Done
+// 	b.StopTimer()
+// 	report := collector.GenerateReport()
+// 	b.Log(report)
+// }
 
 func BenchmarkGRPCHTTP2GetWithWokers(b *testing.B) {
 	creds, err := credentials.NewClientTLSFromFile(data.Path("x509/server.crt"), "example.com")
@@ -90,7 +135,6 @@ func BenchmarkGRPCHTTP2GetWithWokers(b *testing.B) {
 		ExecFn: func(ctx context.Context) (string, error) {
 			_, err := client.GetUser(ctx, &pb.UserRequest{Id: "61df07d341ed08ad981c143c"})
 			if err != nil {
-				fmt.Println(err)
 				return "ERROR", nil
 			}
 			return "OK", nil

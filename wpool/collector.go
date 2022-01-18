@@ -39,7 +39,16 @@ func (c *Collector) Run(ctx context.Context) {
 	}
 }
 
-func (c *Collector) GenerateReport() map[string]int {
+func (c *Collector) GenerateReport() string {
 	<-c.done // wait until collector end runnig
-	return c.results
+	var (
+		summary int
+		result  string
+	)
+	for k, v := range c.results {
+		summary += v
+		result += fmt.Sprintf("%10s: %d\n", k, v)
+	}
+	result += fmt.Sprintf("Summary: %d\n", summary)
+	return result
 }
