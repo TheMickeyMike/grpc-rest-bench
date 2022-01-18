@@ -40,7 +40,7 @@ func CreateRestAPIJob(client *HTTPClient) wpool.Job {
 				retries  int64
 			)
 			for {
-				response, err = client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &target)
+				response, err = client.MakeRequest(ctx, "https://127.0.0.1:8080/api/v1/users/61df07d341ed08ad981c143c", &target)
 				if err == nil {
 					break
 				}

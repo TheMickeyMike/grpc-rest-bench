@@ -50,7 +50,7 @@ func BenchmarkGrpcGetUserById(b *testing.B) {
 	if err != nil {
 		log.Fatalf("Failed to create TLS credentials %v", err)
 	}
-	conn, err := grpc.Dial("localhost:8080", grpc.WithTransportCredentials(creds))
+	conn, err := grpc.Dial("127.0.0.1:8080", grpc.WithTransportCredentials(creds))
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
@@ -61,7 +61,7 @@ func BenchmarkGrpcGetUserById(b *testing.B) {
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
 			// start N workers
-			wp := wpool.New(1)
+			wp := wpool.New(c.workers)
 			go wp.Run(ctx)
 
 			requestQueue := wp.JobQueue()
