@@ -11,7 +11,7 @@ import (
 func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 	client := NewHTTPClient(HTTP)
 
-	wp := wpool.New(30)
+	wp := wpool.New(1)
 
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
@@ -28,7 +28,7 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 		ExecFn: func(ctx context.Context) (string, error) {
 			var (
 				err      error
-				response *ResponseDetails
+				response ResponseDetails
 				target   pb.UserAccount
 				retries  int = 3
 			)

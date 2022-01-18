@@ -52,28 +52,28 @@ func NewHTTPClient(protocol TransportProtocolVer) *HTTPClient {
 	return &HTTPClient{c}
 }
 
-func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interface{}) (*ResponseDetails, error) {
+func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interface{}) (ResponseDetails, error) {
+	result := ResponseDetails{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	res, err := c.client.Do(req)
 	if err != nil {
 		// log.Println(err) //socket: too many open files https://github.com/golang/go/issues/18588
-		return nil, err
+		return ResponseDetails{}, err
 	}
 	defer res.Body.Close()
 
-	respDetails := ResponseDetails{
-		Status: res.Status,
-		Proto:  res.Proto,
-	}
-
 	decoder := json.NewDecoder(res.Body) // drop resp: io.Copy(ioutil.Discard, res.Body)
 	if err = decoder.Decode(output); err != nil {
-		return nil, err
+		return result, err
 	}
-	return &respDetails, nil
+
+	result.Status = res.Status
+	result.Proto = res.Proto
+
+	return result, nil
 }
 
 func createTLSConfigWithCustomCert() *tls.Config {

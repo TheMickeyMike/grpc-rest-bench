@@ -1,6 +1,8 @@
 package wpool
 
-import "context"
+import (
+	"context"
+)
 
 type ExecutionFn func(ctx context.Context) (string, error)
 
@@ -13,7 +15,7 @@ type Job struct {
 	ExecFn ExecutionFn
 }
 
-func (j Job) execute(ctx context.Context) Result {
+func (j *Job) execute(ctx context.Context) Result {
 	value, err := j.ExecFn(ctx)
 	if err != nil {
 		return Result{
