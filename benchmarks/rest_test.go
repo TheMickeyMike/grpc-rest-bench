@@ -2,13 +2,35 @@ package benchmarks
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/TheMickeyMike/grpc-rest-bench/pb"
 	"github.com/TheMickeyMike/grpc-rest-bench/wpool"
 )
 
-func CreateJob(client *HTTPClient) wpool.Job {
+type BenchmarkCase struct {
+	name     string
+	workers  int
+	protocol TransportProtocolVer
+}
+
+func GenerateBenchmarkHTTPCases(protoVer TransportProtocolVer) []BenchmarkCase {
+	var (
+		cases        []BenchmarkCase
+		workersCount = []int{1, 2, 4, 8, 16, 32, 64}
+	)
+	for _, worker := range workersCount {
+		cases = append(cases, BenchmarkCase{
+			name:     strconv.Itoa(worker),
+			workers:  worker,
+			protocol: protoVer,
+		})
+	}
+	return cases
+}
+
+func CreateRestAPIJob(client *HTTPClient) wpool.Job {
 	return wpool.Job{
 		ExecFn: func(ctx context.Context) (string, int64, error) {
 			var (
@@ -28,78 +50,12 @@ func CreateJob(client *HTTPClient) wpool.Job {
 		},
 	}
 }
-func BenchmarkHTTP11GetWithWokers(b *testing.B) {
+
+func BenchmarkHTTP11GetUserById(b *testing.B) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	// start N workers
-	wp := wpool.New(1)
-	go wp.Run(ctx)
-
-	requestQueue := wp.JobQueue()
-
-	// collect stats
-	collector := wpool.NewCollector(wp.Results())
-	go collector.Run(ctx)
-
-	// create job
-	client := NewHTTPClient(HTTP)
-	job := CreateJob(client)
-
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		requestQueue <- job
-	}
-	close(requestQueue)
-	<-wp.Done
-	b.StopTimer()
-	collector.GenerateReport(b)
-}
-
-func BenchmarkHTTP11GetWithWokersSUb(b *testing.B) {
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
-	cases := []struct {
-		name     string
-		workers  int
-		protocol TransportProtocolVer
-	}{
-		{
-			name:     "HTTP1GetUserById-worker1",
-			workers:  1,
-			protocol: HTTP,
-		},
-		{
-			name:     "HTTP1GetUserById-worker2",
-			workers:  2,
-			protocol: HTTP,
-		},
-		{
-			name:     "HTTP1GetUserById-worker4",
-			workers:  4,
-			protocol: HTTP,
-		},
-		{
-			name:     "HTTP1GetUserById-worker8",
-			workers:  8,
-			protocol: HTTP,
-		},
-		{
-			name:     "HTTP1GetUserById-worker16",
-			workers:  16,
-			protocol: HTTP,
-		},
-		{
-			name:     "HTTP1GetUserById-worker32",
-			workers:  32,
-			protocol: HTTP,
-		},
-		{
-			name:     "HTTP1GetUserById-worker64",
-			workers:  64,
-			protocol: HTTP,
-		},
-	}
+	cases := GenerateBenchmarkHTTPCases(HTTP)
 
 	for _, c := range cases {
 		b.Run(c.name, func(b *testing.B) {
@@ -115,7 +71,41 @@ func BenchmarkHTTP11GetWithWokersSUb(b *testing.B) {
 
 			// create job
 			client := NewHTTPClient(c.protocol)
-			job := CreateJob(client)
+			job := CreateRestAPIJob(client)
+
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				requestQueue <- job
+			}
+			close(requestQueue)
+			<-wp.Done
+			b.StopTimer()
+			collector.GenerateReport(b)
+		})
+	}
+}
+
+func BenchmarkHTTP2GetUserById(b *testing.B) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	cases := GenerateBenchmarkHTTPCases(HTTP2)
+
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			// start N workers
+			wp := wpool.New(c.workers)
+			go wp.Run(ctx)
+
+			requestQueue := wp.JobQueue()
+
+			// collect stats
+			collector := wpool.NewCollector(wp.Results())
+			go collector.Run(ctx)
+
+			// create job
+			client := NewHTTPClient(c.protocol)
+			job := CreateRestAPIJob(client)
 
 			b.ResetTimer()
 			for n := 0; n < b.N; n++ {

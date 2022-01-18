@@ -3,6 +3,7 @@ package benchmarks
 import (
 	"context"
 	"log"
+	"strconv"
 	"testing"
 
 	"github.com/TheMickeyMike/grpc-rest-bench/data"
@@ -12,7 +13,39 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func BenchmarkGRPCHTTP2GetWithWokers(b *testing.B) {
+func GenerateBenchmarkGrpcCases() []BenchmarkCase {
+	var (
+		cases        []BenchmarkCase
+		workersCount = []int{1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096}
+	)
+	for _, worker := range workersCount {
+		cases = append(cases, BenchmarkCase{
+			name:    strconv.Itoa(worker),
+			workers: worker,
+		})
+	}
+	return cases
+}
+
+func CreateGrpcAPIJob(client pb.UsersClient) wpool.Job {
+	return wpool.Job{
+		ExecFn: func(ctx context.Context) (string, int64, error) {
+			_, err := client.GetUser(ctx, &pb.UserRequest{Id: "61df07d341ed08ad981c143c"})
+			if err != nil {
+				return "ERROR", 0, nil
+			}
+			return "OK", 0, nil
+		},
+	}
+}
+
+func BenchmarkGrpcGetUserById(b *testing.B) {
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
+
+	cases := GenerateBenchmarkGrpcCases()
+
+	//setup grpc client
 	creds, err := credentials.NewClientTLSFromFile(data.Path("x509/server.crt"), "example.com")
 	if err != nil {
 		log.Fatalf("Failed to create TLS credentials %v", err)
@@ -25,36 +58,30 @@ func BenchmarkGRPCHTTP2GetWithWokers(b *testing.B) {
 
 	client := pb.NewUsersClient(conn)
 
-	wp := wpool.New(1)
+	for _, c := range cases {
+		b.Run(c.name, func(b *testing.B) {
+			// start N workers
+			wp := wpool.New(1)
+			go wp.Run(ctx)
 
-	ctx, cancel := context.WithCancel(context.TODO())
-	defer cancel()
+			requestQueue := wp.JobQueue()
 
-	go wp.Run(ctx) //start workers
+			// collect stats
+			collector := wpool.NewCollector(wp.Results())
+			go collector.Run(ctx)
 
-	requestQueue := wp.JobQueue()
+			// create job
+			job := CreateGrpcAPIJob(client)
 
-	collector := wpool.NewCollector(wp.Results())
-
-	go collector.Run(ctx) //start result collector
-
-	job := wpool.Job{
-		ExecFn: func(ctx context.Context) (string, int64, error) {
-			_, err := client.GetUser(ctx, &pb.UserRequest{Id: "61df07d341ed08ad981c143c"})
-			if err != nil {
-				return "ERROR", 0, nil
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				requestQueue <- job
 			}
-			return "OK", 0, nil
-		},
+			close(requestQueue)
+			<-wp.Done
+			b.StopTimer()
+			collector.GenerateReport(b)
+		})
 	}
 
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		requestQueue <- job
-	}
-	close(requestQueue)
-	<-wp.Done
-	b.StopTimer()
-	collector.GenerateReport(b)
-	// b.Log(report)
 }
