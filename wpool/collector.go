@@ -3,19 +3,23 @@ package wpool
 import (
 	"context"
 	"fmt"
+	"testing"
 )
 
 type Collector struct {
 	resultsQueue <-chan Result
-	results      map[string]int
+	results      map[string]int64
 	done         chan struct{}
 }
 
 func NewCollector(resultsQueue <-chan Result) *Collector {
 	return &Collector{
 		resultsQueue: resultsQueue,
-		results:      make(map[string]int),
-		done:         make(chan struct{}),
+		results: map[string]int64{
+			"retries": 0,
+			"error":   0,
+		},
+		done: make(chan struct{}),
 	}
 }
 
@@ -27,12 +31,13 @@ func (c *Collector) Run(ctx context.Context) {
 			if !ok {
 				return
 			}
+			if res.Retries > 0 {
+				c.results["retries"] += res.Retries
+			}
 			if res.Err != nil {
 				c.results["error"] += 1
 			} else {
-				for _, v := range res.Value {
-					c.results[v] += 1
-				}
+				c.results[res.Value] += 1
 			}
 		case <-ctx.Done():
 			fmt.Printf("cancelled collector. Error detail: %v\n", ctx.Err())
@@ -41,7 +46,19 @@ func (c *Collector) Run(ctx context.Context) {
 	}
 }
 
-func (c *Collector) GenerateReport() map[string]int {
-	<-c.done // wait until collector end runnig
-	return c.results
+func (c *Collector) GenerateReport(b *testing.B) string {
+	<-c.done // wait until collector ends collecting results
+	var (
+		summary int64
+		result  string
+	)
+	for k, v := range c.results {
+		if k != "retries" {
+			summary += v
+		}
+		result += fmt.Sprintf("%s: %d\n", k, v)
+		b.ReportMetric(float64(v), k)
+	}
+	result += fmt.Sprintf("summary: %d\n", summary)
+	return result
 }

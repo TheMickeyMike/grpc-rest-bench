@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/TheMickeyMike/grpc-rest-bench/data"
 	"golang.org/x/net/http2"
@@ -19,6 +20,17 @@ var (
 	HTTP  TransportProtocolVer = "HTTP1"
 	HTTP2 TransportProtocolVer = "HTTP2"
 )
+
+type ResponseDetails struct {
+	Status string
+	Proto  string
+}
+
+func (r *ResponseDetails) StatKey() string {
+	stats := []string{r.Status, r.Proto}
+	key := strings.Join(stats, "_")
+	return strings.ReplaceAll(key, " ", "_")
+}
 
 type HTTPClient struct {
 	client *http.Client
@@ -40,32 +52,31 @@ func NewHTTPClient(protocol TransportProtocolVer) *HTTPClient {
 	return &HTTPClient{c}
 }
 
-func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interface{}) ([]string, error) {
+func (c *HTTPClient) MakeRequest(ctx context.Context, url string, output interface{}) (ResponseDetails, error) {
+	result := ResponseDetails{}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return result, err
 	}
 	res, err := c.client.Do(req)
 	if err != nil {
 		// log.Println(err) //socket: too many open files https://github.com/golang/go/issues/18588
-		return nil, err
+		return ResponseDetails{}, err
 	}
 	defer res.Body.Close()
 
-	// use discard when not reading body
-	// io.Copy(ioutil.Discard, res.Body)
-
-	// use decode when
-	decoder := json.NewDecoder(res.Body)
+	decoder := json.NewDecoder(res.Body) // drop resp: io.Copy(ioutil.Discard, res.Body)
 	if err = decoder.Decode(output); err != nil {
-		return nil, err
+		return result, err
 	}
-	return []string{res.Status, res.Proto}, nil
+
+	result.Status = res.Status
+	result.Proto = res.Proto
+
+	return result, nil
 }
 
 func createTLSConfigWithCustomCert() *tls.Config {
-	// Create a pool with the server certificate since it is not signed
-	// by a known CA
 	caCert, err := ioutil.ReadFile(data.Path("x509/server.crt"))
 	if err != nil {
 		log.Fatalf("Reading server certificate: %s", err)
@@ -77,8 +88,6 @@ func createTLSConfigWithCustomCert() *tls.Config {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Create TLS configuration with the certificate of the server
 	return &tls.Config{
 		RootCAs:      caCertPool,
 		Certificates: []tls.Certificate{cert},

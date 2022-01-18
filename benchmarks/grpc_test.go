@@ -2,15 +2,28 @@ package benchmarks
 
 import (
 	"context"
-	"strings"
+	"log"
 	"testing"
 
+	"github.com/TheMickeyMike/grpc-rest-bench/data"
 	"github.com/TheMickeyMike/grpc-rest-bench/pb"
 	"github.com/TheMickeyMike/grpc-rest-bench/wpool"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
-func BenchmarkHTTP2GetWithWokers(b *testing.B) {
-	client := NewHTTPClient(HTTP2)
+func BenchmarkGRPCHTTP2GetWithWokers(b *testing.B) {
+	creds, err := credentials.NewClientTLSFromFile(data.Path("x509/server.crt"), "example.com")
+	if err != nil {
+		log.Fatalf("Failed to create TLS credentials %v", err)
+	}
+	conn, err := grpc.Dial("localhost:8080", grpc.WithTransportCredentials(creds))
+	if err != nil {
+		log.Fatalf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+
+	client := pb.NewUsersClient(conn)
 
 	wp := wpool.New(1)
 
@@ -25,31 +38,23 @@ func BenchmarkHTTP2GetWithWokers(b *testing.B) {
 
 	go collector.Run(ctx) //start result collector
 
-	job := &wpool.Job{
-		ExecFn: func(ctx context.Context, args interface{}) ([]string, error) {
-			var respBody pb.UserAccount
-			reqStats, err := client.MakeRequest(ctx, "https://localhost:8080/api/v1/users/61df07d341ed08ad981c143c", &respBody)
+	job := wpool.Job{
+		ExecFn: func(ctx context.Context) (string, int64, error) {
+			_, err := client.GetUser(ctx, &pb.UserRequest{Id: "61df07d341ed08ad981c143c"})
 			if err != nil {
-				return nil, err
+				return "ERROR", 0, nil
 			}
-			// return []string{"200_OK", "HTTP_1_1"}, nil
-			return []string{transformToStatKey(reqStats)}, nil
+			return "OK", 0, nil
 		},
 	}
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		job.Details.ID = n
-		requestQueue <- *job
+		requestQueue <- job
 	}
 	close(requestQueue)
 	<-wp.Done
 	b.StopTimer()
-	report := collector.GenerateReport()
-	b.Log(report)
-}
-
-func transformToStatKey(stats []string) string {
-	key := strings.Join(stats, "_")
-	return strings.ReplaceAll(key, " ", "_")
+	collector.GenerateReport(b)
+	// b.Log(report)
 }

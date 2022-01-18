@@ -17,7 +17,7 @@ func New(wcount int) *WorkerPool {
 	return &WorkerPool{
 		workersCount: wcount,
 		jobs:         make(chan Job, wcount),
-		results:      make(chan Result, wcount*10),
+		results:      make(chan Result, wcount*2),
 		Done:         make(chan struct{}),
 	}
 }
@@ -27,9 +27,6 @@ func (wp *WorkerPool) Run(ctx context.Context) {
 
 	for i := 0; i < wp.workersCount; i++ {
 		wg.Add(1)
-		// fan out worker goroutines
-		//reading from jobs channel and
-		//pushing calcs into results channel
 		go worker(ctx, &wg, wp.jobs, wp.results, i)
 	}
 	wg.Wait()
@@ -50,12 +47,14 @@ func worker(ctx context.Context, wg *sync.WaitGroup, jobs <-chan Job, results ch
 	for {
 		select {
 		case job, ok := <-jobs:
-			// fmt.Printf("[worker %d] Job: %d\n", id, job.Details.ID)
 			if !ok {
 				return
 			}
-			// fan-in job execution multiplexing results into the results channel
-			results <- job.execute(ctx)
+			select {
+			case results <- job.execute(ctx): // Put results in the channel unless it is full
+			default:
+				fmt.Println("Channel full. Discarding value")
+			}
 		case <-ctx.Done():
 			fmt.Printf("cancelled worker. Error detail: %v\n", ctx.Err())
 			results <- Result{
